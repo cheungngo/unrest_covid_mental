@@ -1,0 +1,433 @@
+---
+title: "12 Multivariate logistic regression"
+author: "cheungngo"
+date: "5/7/2020"
+output:
+  html_document: default
+  word_document: default
+---
+
+### setting the path
+
+```{r}
+path =  "C:/Users/User/Documents/testing/"
+```
+
+
+### Importing the dataset
+
+```{r, message=FALSE}
+library(readr)
+masterdata_A <- read_csv("testing/masterdata_A_10.csv")
+masterdata_B <- read_csv("testing/masterdata_B_05.csv")
+dependent_var <- read_csv("testing/dependent_var.csv")
+```
+
+
+### Combining previous calculations (OR)
+
+```{r, echo=FALSE}
+# A function to merge previous calculations
+
+merge_coef = function(masterdata, path, number, key, ind) {
+  ini = ind[1]
+  initial = as.data.frame(read_csv(paste(path, sprintf("%02d", number), key, colnames(masterdata)[ini], ".csv", sep = "")))
+  rownames(initial) = paste(colnames(masterdata)[ini], unlist(initial[,1]), sep = "_")
+  initial = initial[,-1]
+  if (length(ind) >=2) {
+    for (i in ind[-1]) {
+      appendix = as.data.frame(read_csv(paste(path, sprintf("%02d", number), key, colnames(masterdata)[i], ".csv", sep = "")))
+      rownames(appendix) = paste(colnames(masterdata)[i], unlist(appendix[,1]), sep = "_")
+      appendix = appendix[,-1]
+      initial = rbind(initial, appendix)
+    }
+    return(initial)
+  } else {
+    return(initial)
+  }
+}
+
+merge_coef_cont = function(masterdata, path, number, key, ind) {
+  ini = ind[1]
+  initial = as.data.frame(read_csv(paste(path, sprintf("%02d", number), key, colnames(masterdata)[ini], ".csv", sep = "")))
+  rownames(initial) = colnames(masterdata)[ini]
+  initial = initial[,-1]
+  if (length(ind) >=2) {
+    for (i in ind[-1]) {
+      appendix = as.data.frame(read_csv(paste(path, sprintf("%02d", number), key, colnames(masterdata)[i], ".csv", sep = "")))
+      rownames(appendix) = colnames(masterdata)[i]
+      appendix = appendix[,-1]
+      initial = rbind(initial, appendix)
+    }
+    return(initial)
+  } else {
+    return(initial)
+  }
+}
+```
+
+```{r, warning=FALSE, message=FALSE}
+### PEDT
+
+key = "_coef_Dx_PEDT_"
+
+# Known risk factors
+
+ind = c(42:46, 53, 60, 61)
+coef_PEDT_03 = merge_coef(masterdata_A, path, 03, key, ind)
+write.csv(coef_PEDT_03, paste(path, "12_coef_PEDT_03.csv", sep = ""))
+
+# Probable risk factors
+
+ind = c(23:24, 47:49, 62:63)
+coef_PEDT_04 = merge_coef(masterdata_A, path, 04, key, ind)
+coef_PEDT_adj_04 = merge_coef(masterdata_A, path, 04, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_PEDT_04, paste(path, "12_coef_PEDT_04.csv", sep = ""))
+write.csv(coef_PEDT_adj_04, paste(path, "12_coef_PEDT_adj_04.csv", sep = ""))
+
+# Psychiatric factors
+
+ind = c(3:5,24:31,
+        2,8:13,16:23,32,
+        1)
+coef_PEDT_05 = merge_coef(masterdata_B, path, 05, key, ind)
+coef_PEDT_adj_05 = merge_coef(masterdata_B, path, 05, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_PEDT_05, paste(path, "12_coef_PEDT_05.csv", sep = ""))
+write.csv(coef_PEDT_adj_05, paste(path, "12_coef_PEDT_adj_05.csv", sep = ""))
+
+# Physical factors
+
+ind = c(54, 64:95)
+coef_PEDT_06 = merge_coef(masterdata_A, path, 06, key, ind)
+coef_PEDT_adj_06 = merge_coef(masterdata_A, path, 06, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_PEDT_06, paste(path, "12_coef_PEDT_06.csv", sep = ""))
+write.csv(coef_PEDT_adj_06, paste(path, "12_coef_PEDT_adj_06.csv", sep = ""))
+
+# Demographics
+
+ind = c(14:17)
+coef_PEDT_07 = merge_coef(masterdata_A, path, 07, key, ind)
+coef_PEDT_adj_07 = merge_coef(masterdata_A, path, 07, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_PEDT_07, paste(path, "12_coef_PEDT_07.csv", sep = ""))
+write.csv(coef_PEDT_adj_07, paste(path, "12_coef_PEDT_adj_07.csv", sep = ""))
+
+# State anxiety / depression
+
+ind = c(99:101)
+coef_PEDT_08 = merge_coef(masterdata_A, path, 08, key, ind)
+coef_PEDT_adj_08 = merge_coef(masterdata_A, path, 08, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_PEDT_08, paste(path, "12_coef_PEDT_08.csv", sep = ""))
+write.csv(coef_PEDT_adj_08, paste(path, "12_coef_PEDT_adj_08.csv", sep = ""))
+
+# Partner and sexual activity
+
+ind = c(102:103)
+coef_PEDT_10 = merge_coef(masterdata_A, path, 10, key, ind)
+coef_PEDT_adj_10 = merge_coef(masterdata_A, path, 10, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_PEDT_10, paste(path, "12_coef_PEDT_10.csv", sep = ""))
+write.csv(coef_PEDT_adj_10, paste(path, "12_coef_PEDT_adj_10.csv", sep = ""))
+
+# Cont variables
+
+coef_PEDT_cont = rbind(merge_coef_cont(masterdata_A, path, 03, key, 13),
+                       merge_coef_cont(masterdata_B, path, 05, key, 15),
+                       merge_coef_cont(masterdata_A, path, 06, key, c(55:57, 96)),
+                       merge_coef_cont(masterdata_A, path, 08, key, c(97:98)),
+                       merge_coef_cont(masterdata_A, path, 10, key, c(18:19)))
+
+coef_PEDT_cont_adj = rbind(merge_coef_cont(masterdata_B, path, 05, paste(key, "adj_", sep = ""), 15),
+                           merge_coef_cont(masterdata_A, path, 06, paste(key, "adj_", sep = ""), c(55:57, 96)),
+                           merge_coef_cont(masterdata_A, path, 08, paste(key, "adj_", sep = ""), c(97:98)),
+                           merge_coef_cont(masterdata_A, path, 10, paste(key, "adj_", sep = ""), c(18:19)))
+
+write.csv(coef_PEDT_cont, paste(path, "12_coef_PEDT_cont.csv", sep = ""))
+write.csv(coef_PEDT_cont_adj, paste(path, "12_coef_PEDT_cont_adj.csv", sep = ""))
+
+# Cate variables combined
+
+coef_PEDT_cate = rbind(coef_PEDT_03, coef_PEDT_04, coef_PEDT_05, coef_PEDT_06, coef_PEDT_07, coef_PEDT_08, coef_PEDT_10)
+coef_PEDT_cate_adj = rbind(coef_PEDT_adj_04, coef_PEDT_adj_05, coef_PEDT_adj_06, coef_PEDT_adj_07, coef_PEDT_adj_08, coef_PEDT_adj_10)
+
+write.csv(coef_PEDT_cate, paste(path, "12_coef_PEDT_cate.csv", sep = ""))
+write.csv(coef_PEDT_cate_adj, paste(path, "12_coef_PEDT_cate_adj.csv", sep = ""))
+```
+
+```{r}
+cont_beau = function(cont) {
+  OR = apply(cont, 1, function (i) {
+    exp(i[1] + qnorm(c(0.025,0.5,0.975)) * i[2])
+  })
+  OR = t(OR)
+  OR_b = apply(OR, 1, function (i) {
+    if (i[2] != 1) {
+      return(paste(round(i[2],2), " (", round(i[1],2), "-", round(i[3],2), ")", sep = ""))
+    } else {
+      return(1)
+    }
+  })
+  result = as.data.frame(cbind(OR_b, cont[,4]))
+  colnames(result) = c("OR","p")
+  return(result)
+}
+```
+
+```{r}
+write.csv(cont_beau(coef_PEDT_cont), paste(path, "12_coef_PEDT_cont_b.csv", sep = ""))
+write.csv(cont_beau(coef_PEDT_cont_adj), paste(path, "12_coef_PEDT_cont_adj_b.csv", sep = ""))
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+### ISSM
+
+key = "_coef_Dx_ISSM_"
+
+# Known risk factors
+
+ind = c(42:46, 53, 60, 61)
+coef_ISSM_03 = merge_coef(masterdata_A, path, 03, key, ind)
+write.csv(coef_ISSM_03, paste(path, "12_coef_ISSM_03.csv", sep = ""))
+
+# Probable risk factors
+
+ind = c(23:24, 47:49, 62:63)
+coef_ISSM_04 = merge_coef(masterdata_A, path, 04, key, ind)
+coef_ISSM_adj_04 = merge_coef(masterdata_A, path, 04, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_ISSM_04, paste(path, "12_coef_ISSM_04.csv", sep = ""))
+write.csv(coef_ISSM_adj_04, paste(path, "12_coef_ISSM_adj_04.csv", sep = ""))
+
+# Psychiatric factors
+
+ind = c(3:5,24:31,
+        2,8:13,16:23,32,
+        1)
+coef_ISSM_05 = merge_coef(masterdata_B, path, 05, key, ind)
+coef_ISSM_adj_05 = merge_coef(masterdata_B, path, 05, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_ISSM_05, paste(path, "12_coef_ISSM_05.csv", sep = ""))
+write.csv(coef_ISSM_adj_05, paste(path, "12_coef_ISSM_adj_05.csv", sep = ""))
+
+# Physical factors
+
+ind = c(54, 64:95)
+coef_ISSM_06 = merge_coef(masterdata_A, path, 06, key, ind)
+coef_ISSM_adj_06 = merge_coef(masterdata_A, path, 06, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_ISSM_06, paste(path, "12_coef_ISSM_06.csv", sep = ""))
+write.csv(coef_ISSM_adj_06, paste(path, "12_coef_ISSM_adj_06.csv", sep = ""))
+
+# Demographics
+
+ind = c(14:17)
+coef_ISSM_07 = merge_coef(masterdata_A, path, 07, key, ind)
+coef_ISSM_adj_07 = merge_coef(masterdata_A, path, 07, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_ISSM_07, paste(path, "12_coef_ISSM_07.csv", sep = ""))
+write.csv(coef_ISSM_adj_07, paste(path, "12_coef_ISSM_adj_07.csv", sep = ""))
+
+# State anxiety / depression
+
+ind = c(99:101)
+coef_ISSM_08 = merge_coef(masterdata_A, path, 08, key, ind)
+coef_ISSM_adj_08 = merge_coef(masterdata_A, path, 08, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_ISSM_08, paste(path, "12_coef_ISSM_04.csv", sep = ""))
+write.csv(coef_ISSM_adj_08, paste(path, "12_coef_ISSM_adj_04.csv", sep = ""))
+
+# Partner and sexual activity
+
+ind = c(102:103)
+coef_ISSM_10 = merge_coef(masterdata_A, path, 10, key, ind)
+coef_ISSM_adj_10 = merge_coef(masterdata_A, path, 10, paste(key, "adj_", sep = ""), ind)
+write.csv(coef_ISSM_10, paste(path, "12_coef_ISSM_10.csv", sep = ""))
+write.csv(coef_ISSM_adj_10, paste(path, "12_coef_ISSM_adj_10.csv", sep = ""))
+
+# Cont variables
+
+coef_ISSM_cont = rbind(merge_coef_cont(masterdata_A, path, 03, key, 13),
+                       merge_coef_cont(masterdata_B, path, 05, key, 15),
+                       merge_coef_cont(masterdata_A, path, 06, key, c(55:57, 96)),
+                       merge_coef_cont(masterdata_A, path, 08, key, c(97:98)),
+                       merge_coef_cont(masterdata_A, path, 10, key, c(18:19)))
+
+coef_ISSM_cont_adj = rbind(merge_coef_cont(masterdata_B, path, 05, paste(key, "adj_", sep = ""), 15),
+                           merge_coef_cont(masterdata_A, path, 06, paste(key, "adj_", sep = ""), c(55:57, 96)),
+                           merge_coef_cont(masterdata_A, path, 08, paste(key, "adj_", sep = ""), c(97:98)),
+                           merge_coef_cont(masterdata_A, path, 10, paste(key, "adj_", sep = ""), c(18:19)))
+
+write.csv(coef_ISSM_cont, paste(path, "12_coef_ISSM_cont.csv", sep = ""))
+write.csv(coef_ISSM_cont_adj, paste(path, "12_coef_ISSM_cont_adj.csv", sep = ""))
+
+# Cate variables combined
+
+coef_ISSM_cate = rbind(coef_ISSM_03, coef_ISSM_04, coef_ISSM_05, coef_ISSM_06, coef_ISSM_07, coef_ISSM_08, coef_ISSM_10)
+coef_ISSM_cate_adj = rbind(coef_ISSM_adj_04, coef_ISSM_adj_05, coef_ISSM_adj_06, coef_ISSM_adj_07, coef_ISSM_adj_08, coef_ISSM_adj_10)
+
+write.csv(coef_ISSM_cate, paste(path, "12_coef_ISSM_cate.csv", sep = ""))
+write.csv(coef_ISSM_cate_adj, paste(path, "12_coef_ISSM_cate_adj.csv", sep = ""))
+```
+
+```{r}
+write.csv(cont_beau(coef_ISSM_cont), paste(path, "12_coef_ISSM_cont_b.csv", sep = ""))
+write.csv(cont_beau(coef_ISSM_cont_adj), paste(path, "12_coef_ISSM_cont_adj_b.csv", sep = ""))
+```
+
+```{r, echo=FALSE}
+beautify_cate = function (data) {
+  data[,1:3] = apply(data[,1:3], 2, function(i) {
+    round(i, digits = 1)
+  })
+  OR_b = apply(data, 1, function (i) {
+    if (i[2] != 1) {
+      return(paste(i[2], " (", i[1], "-", i[3], ")", sep = ""))
+    } else {
+      return(1)
+    }
+  })
+  return(as.data.frame(cbind(OR_b, data[,4])))
+}
+```
+
+```{r}
+coef_ISSM_cate_b = beautify_cate(coef_ISSM_cate)
+coef_ISSM_cate_adj_b = beautify_cate(coef_ISSM_cate_adj)
+coef_PEDT_cate_b = beautify_cate(coef_PEDT_cate)
+coef_PEDT_cate_adj_b = beautify_cate(coef_PEDT_cate_adj)
+
+write.csv(coef_ISSM_cate_b, paste(path, "12_coef_ISSM_cate_b.csv", sep = ""))
+write.csv(coef_ISSM_cate_adj_b, paste(path, "12_coef_ISSM_cate_adj_b.csv", sep = ""))
+write.csv(coef_PEDT_cate_b, paste(path, "12_coef_PEDT_cate_b.csv", sep = ""))
+write.csv(coef_PEDT_cate_adj_b, paste(path, "12_coef_PEDT_cate_adj_b.csv", sep = ""))
+```
+
+
+### Identifying variables with p < 0.1
+
+```{r}
+coef_PEDT_cate[which(coef_PEDT_cate$`p-value`<0.1),]
+coef_ISSM_cate[which(coef_ISSM_cate$`p-value`<0.1),]
+coef_PEDT_cont[which(coef_PEDT_cont$`p-value`<0.1),]
+coef_ISSM_cont[which(coef_ISSM_cont$`p-value`<0.1),]
+
+# getting their identifiers
+
+sigvar_PEDT = c(rownames(coef_PEDT_cate[which(coef_PEDT_cate$`p-value`<0.1),]),
+                rownames(coef_PEDT_cont[which(coef_PEDT_cont$`p-value`<0.1),]))
+sigvar_ISSM = c(rownames(coef_ISSM_cate[which(coef_ISSM_cate$`p-value`<0.1),]),
+                rownames(coef_ISSM_cont[which(coef_ISSM_cont$`p-value`<0.1),]))
+```
+
+
+### Variable wrangling
+
+```{r, echo=FALSE}
+# A function to create dummy variables
+
+create_dummy = function(column) {
+  n = range(column)[2]
+  len = dim(column)[1]
+  data = matrix(nrow = len,
+                ncol = range(column)[2]-range(column)[1]+1)
+  count = 1
+  for (i in range(column)[1]:range(column)[2]) {
+    data[,count] = sapply(column, function(x) {
+      ifelse(x==i, 2, 1)
+      })
+    count = count+1
+  }
+  c_name = colnames(column)
+  colnames(data) = sapply(range(column)[1]:range(column)[2], function (i) {
+    paste(c_name, i, sep = "_")
+  })
+  return(data)
+}
+
+# To be used with create_dummy()
+cbind_dummy = function(masterdata, ind) {
+  ini = ind[1]
+  initial = create_dummy(masterdata[,ini])
+  if (length(ind) >=2) {
+    for (i in ind[-1]) {
+      subsequent = create_dummy(masterdata[,i])
+      initial = cbind(initial, subsequent)
+    }
+    return(initial)
+  } else {
+    return(initial)
+  }
+}
+```
+
+```{r}
+indA = c(42:46, 53, 61,
+         23:24, 47:49, 62:63,
+         54, 64:95,
+         14:17,
+         99:101,
+         102:103)
+indB = c(3:5,24:31,
+         2,8:13,16:23,32,
+         1)
+
+y_x = cbind(cbind_dummy(masterdata_A, indA),
+            cbind_dummy(masterdata_B, indB),
+            masterdata_A[,c(13, 55:57, 96:98, 18:19)],
+            masterdata_B[,15])
+```
+
+```{r}
+y_x_PEDT = y_x[,which(colnames(y_x) %in% sigvar_PEDT)]
+y_x_ISSM = y_x[,which(colnames(y_x) %in% sigvar_ISSM)]
+```
+
+```{r}
+y_x_PEDT$Dx_PEDT_11 = dependent_var$Dx_PEDT_11
+y_x_ISSM$Dx_ISSM_PE_before = dependent_var$Dx_ISSM_PE_before
+```
+
+
+### Multivariate stepwise logistic regression 
+
+```{r}
+library(MASS)
+```
+
+#### PEDT
+
+```{r}
+full_model = glm(Dx_PEDT_11 ~.,
+                 data = y_x_PEDT,
+                 family = "binomial")
+```
+
+```{r}
+step_model = stepAIC(full_model,
+                     direction = "both")
+```
+
+```{r}
+summary(step_model)
+
+log_step_model_PEDT = as.data.frame(round(summary(step_model)$coef, digits = 3))
+write.csv(cont_beau(log_step_model_PEDT),
+          paste(path, "12_log_step_model_PEDT.csv", sep = ""))
+```
+
+### ISSM
+
+```{r}
+full_model = glm(Dx_ISSM_PE_before ~.,
+                 data = y_x_ISSM,
+                 family = "binomial")
+summary(full_model)
+```
+
+```{r}
+step_model = stepAIC(full_model,
+                     direction = "both")
+```
+
+```{r}
+summary(step_model)
+
+log_step_model_ISSM = as.data.frame(round(summary(step_model)$coef, digits = 3))
+
+write.csv(cont_beau(log_step_model_ISSM),
+          paste(path, "12_log_step_model_ISSM.csv", sep = ""))
+```
