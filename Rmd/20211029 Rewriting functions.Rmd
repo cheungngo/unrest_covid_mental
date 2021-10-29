@@ -100,6 +100,22 @@ log_reg_spss_kref_care = function(datay, datax, j, i, kref) {
   return(coeff)
 }
 
+beautify_cate = function (data) {
+  data[,1:3] = apply(data[,1:3], 2, function(i) {
+    round(i, digits = 1)
+  })
+  OR_b = apply(data, 1, function (i) {
+    if (i[2] != 1) {
+      return(paste(i[2], " (", i[1], "-", i[3], ")", sep = ""))
+    } else {
+      return(1)
+    }
+  })
+  result = as.data.frame(as.data.frame(cbind(OR_b, data[,4])))
+  colnames(result) = c("OR","p")
+  return(result)
+}
+
 log_reg_cate_care4all = function (datay, datax, j, i, kref) {
   for (x in i) {
     assign(paste("mod", colnames(datax)[x],sep = ""),
