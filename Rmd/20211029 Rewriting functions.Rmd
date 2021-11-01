@@ -7,7 +7,7 @@ output: html_document
 
 ```{r}
 library(readxl)
-uni_students <- read_excel("data/uni_students.xlsx")
+uni_students <- read_excel("~/unrest_covid_mental/data/uni_students.xlsx")
 ```
 
 
@@ -68,6 +68,13 @@ log_reg_cont_care4all(uni_students, uni_students, 126, c(91,92))
 ### Serial logistic regression for categorical variables
 
 ```{r}
+OR_CI = function(m) {
+  ifelse(is.na(coef(m)[2]),
+         return(c(NA,NA,NA)),
+         return(exp(summary(m)$coefficients[2,1] +
+                      qnorm(c(0.025,0.5,0.975)) * summary(m)$coefficients[2,2])))
+}
+
 log_reg_spss_kref_care = function(datay, datax, j, i, kref) {
   var = as.numeric(unlist(datax[,i]))
   dep = as.numeric(unlist(datay[,j]))

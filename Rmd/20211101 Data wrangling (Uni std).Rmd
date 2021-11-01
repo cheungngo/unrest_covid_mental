@@ -1,0 +1,157 @@
+---
+title: "20211101 Data wrangling (Uni std)"
+author: "cheungngo"
+date: "1 November 2021"
+output: html_document
+---
+
+```{r}
+library(readxl)
+uni_students <- read_excel("~/unrest_covid_mental/data/uni_students.xlsx")
+```
+
+```{r}
+# A function to create ordinal variables from multiple columns of boolean variables
+
+ordinal_from_bools = function(data, cols_as_list, start) {
+  s = start
+  ord = rep(start, dim(data)[1])
+  for (i in cols_as_list) {
+    s = s + 1
+    for (j in i) {
+      x = which(unlist(data[,j])==1)
+      ord[x] = s
+    }
+  }
+  return(ord)
+}
+```
+
+```{r}
+names(uni_students)
+```
+
+```{r}
+# outcomes
+uni_new_y = data.frame(uni_students[,c(126,127,130)]) # 0/1
+```
+
+```{r}
+# demographics
+
+# Gender and Age
+uni_new = uni_students[,(52:53)]
+# 0:F/1:M 
+# age as ordinal, could be analysed as cont (i.e. no ref)
+# or may use 2.2 as ref
+ref = c(0,"cont")
+
+# Degree
+uni_new = cbind(uni_new, uni_students[,54])
+# 40 as ref, most people, bachlor
+ref = c(ref,40)
+### For discussion: may combine below-bachelors
+
+# Year
+# just continuous var
+uni_new = cbind(uni_new, uni_students[,56])
+ref = c(ref, "cont")
+
+# District
+uni_new = cbind(uni_new, uni_students[,57])
+# use 16 (shatin) as ref (most people)
+ref = c(ref, 16)
+
+# Psychiatric History
+uni_new = cbind(uni_new, uni_students[,90])
+ref = c(ref, 0)
+```
+
+```{r}
+# Part C: Covid-status
+
+# need simplification
+# 0 for no contact / effects at all
+# 1 for more distant effects
+# 2 for close contacts
+# 3 for infected cases
+
+cs = ordinal_from_bools(uni_students, list(63:65, 59:61, 58), 0)
+uni_new$C_1 = cs
+ref = c(ref, 0)
+```
+
+```{r}
+# Part D: Effects on daily lives by COVID
+
+# Question 1a and 1b will be regrouped
+
+# occupational related factors
+uni_new$D_1_occu = ordinal_from_bools(uni_students, list(67:69), 0)
+ref = c(ref, 0)
+
+# Living environment / family related
+uni_new$D_1_living = ordinal_from_bools(uni_students, list(70:71), 0)
+ref = c(ref, 0)
+
+#  Medical related
+uni_new$D_1_medical = ordinal_from_bools(uni_students, list(72), 0)
+ref = c(ref, 0)
+
+# School related
+uni_new$D_1_school = ordinal_from_bools(uni_students, list(73:75), 0)
+ref = c(ref, 0)
+
+# Psychologically related CANCELED for perfect correlation
+
+# Q2-5 just copied to the new dataframe
+uni_new = cbind(uni_new, uni_students[,85:88])
+ref = c(ref, rep("cont", 4))
+
+# Q6 CANCELLED for multicollinearity
+```
+
+```{r}
+# Part E: perception about COVID
+# just copy will do
+
+uni_new = cbind(uni_new, uni_students[,91:92])
+ref = c(ref, rep("cont", 2))
+```
+
+```{r}
+# Part F: social unrest
+
+# Q1 could be converted as an continuous / ordinal variable, with 0 as no contact
+
+uni_new$F_1 = ordinal_from_bools(uni_students, list(97,96,95,94,93), 0)
+# should be using 1 as ref (largest num)
+ref = c(ref, 1)
+
+# Q2 could just be copied
+
+uni_new = cbind(uni_new, uni_students[,99])
+ref = c(ref, "cont")
+
+# Q3 should be deleted for possible multicollinearity (with Q4)
+
+# Q4: bi 1-4 could be just copied
+uni_new = cbind(uni_new, uni_students[,101:104])
+ref = c(ref, rep(0,4))
+# bi 5:6 as occupational related
+uni_new$F_3_b_i_Occu = ordinal_from_bools(uni_students, list(105:106), 0)
+ref = c(ref, 0)
+# bii as one
+uni_new$F_3_b_ii_Phy = ordinal_from_bools(uni_students, list(c(110,112)), 0)
+ref = c(ref, 0)
+# biii should be cancelled for perfect correlation
+```
+
+```{r}
+# exporting the data
+
+write.csv(uni_new_y, "~/unrest_covid_mental/data/uni_new_y.csv", row.names = F)
+write.csv(uni_new, "~/unrest_covid_mental/data/uni_new_x.csv", row.names = F)
+```
+
+
