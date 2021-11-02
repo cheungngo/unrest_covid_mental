@@ -125,8 +125,8 @@ ref = c(ref, rep("cont", 2))
 # Q1 could be converted as an continuous / ordinal variable, with 0 as no contact
 
 uni_new$F_1 = ordinal_from_bools(uni_students, list(97,96,95,94,93), 0)
-# should be using 1 as ref (largest num)
-ref = c(ref, 1)
+# as a cont. var
+ref = c(ref, "cont")
 
 # Q2 could just be copied
 
@@ -150,8 +150,8 @@ ref = c(ref, 0)
 ```{r}
 # exporting the data
 
-write.csv(uni_new_y, "~/unrest_covid_mental/data/uni_new_y.csv", row.names = F)
-write.csv(uni_new, "~/unrest_covid_mental/data/uni_new_x.csv", row.names = F)
+write.csv(uni_new_y, "~/unrest_covid_mental/data/uni_std/uni_new_y.csv", row.names = F)
+write.csv(uni_new, "~/unrest_covid_mental/data/uni_std/uni_new_x.csv", row.names = F)
 ```
 
 

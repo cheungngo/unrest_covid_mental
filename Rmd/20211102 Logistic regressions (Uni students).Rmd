@@ -1,0 +1,560 @@
+---
+title: "20211102 Logistic regressions (Uni students)"
+author: "cheungngo"
+date: "2 November 2021"
+output: html_document
+---
+
+### Loading data
+
+```{r}
+library(readxl)
+uni_students <- read_excel("~/unrest_covid_mental/data/uni_students.xlsx")
+```
+
+### Function required
+
+##### Serial logistic regression for continuous variables
+
+```{r}
+log_reg_spss_cont0 = function(datay, datax, j, i) {
+  var = as.numeric(unlist(datax[,i]))
+  dep = as.numeric(unlist(datay[,j]))
+  ind = which(!is.na(var))
+  var = var[ind]
+  dep = dep[ind]
+  coeff = matrix(ncol = 4)
+  modglm = glm(dep~var, family = "binomial")
+  coeff[1,] = summary(modglm)$coef[2,]
+  rownames(coeff) = colnames(datax)[i]
+  colnames(coeff) = c("Estimate", "SD", "z-value", "p-value")
+  coeff = round(coeff, digits = 3)
+  return(coeff)
+}
+
+cont_beau = function(cont) {
+  OR = apply(cont, 1, function (i) {
+    exp(i[1] + qnorm(c(0.025,0.5,0.975)) * i[2])
+  })
+  OR = t(OR)
+  OR_b = apply(OR, 1, function (i) {
+    if (i[2] != 1) {
+      return(paste(round(i[2],2), " (", round(i[1],2), "-", round(i[3],2), ")", sep = ""))
+    } else {
+      return(1)
+    }
+  })
+  result = cbind(OR_b, cont[,4])
+  colnames(result) = c("OR","p")
+  return(result)
+}
+
+log_reg_cont_care4all = function (datay, datax, j, i) {
+  for (x in i) {
+    assign(paste("mod", colnames(datax)[x],sep = ""),
+           log_reg_spss_cont0(datay, datax, j, x))
+  }
+  tab = eval(parse(text = paste("mod", colnames(datax)[i[1]],sep = "")))
+  for (x in i[-1]) {
+    tab2 = eval(parse(text = paste("mod", colnames(datax)[x],sep = "")))
+    tab = rbind(tab, tab2)
+  }
+  return(cont_beau(tab))
+}
+```
+
+
+##### Serial logistic regression for categorical variables
+
+```{r}
+OR_CI = function(m) {
+  ifelse(is.na(coef(m)[2]),
+         return(c(NA,NA,NA)),
+         return(exp(summary(m)$coefficients[2,1] +
+                      qnorm(c(0.025,0.5,0.975)) * summary(m)$coefficients[2,2])))
+}
+
+log_reg_spss_kref_care = function(datay, datax, j, i, kref) {
+  var = as.numeric(unlist(datax[,i]))
+  dep = as.numeric(unlist(datay[,j]))
+  ind = which(!is.na(var))
+  var = var[ind]
+  dep = dep[ind]
+  coeff = matrix(nrow = length(table(var)),
+                 ncol = 4)
+  coeff[1,] = c(NA,1,NA,NA)
+  ref = kref
+  level = as.numeric(unlist(levels(as.factor(var))))
+  level = level[-which(level==ref)]
+  count = 2
+  for (k in level) {
+    ind2 = which(var==k | var==ref)
+    yy = dep[ind2]
+    xx = var[ind2]
+    modglm = glm(yy~xx, family = "binomial")
+    coeff[count,1:3] = OR_CI(modglm)
+    ifelse(is.na(coef(modglm)[2]),
+           coeff[count,4] <- NA,
+           coeff[count,4] <- as.numeric(unlist(summary(modglm)$coefficients[2,4])))
+    count = count + 1
+  }
+  
+  var_names = colnames(datax)[i]
+  rownames(coeff) = paste(var_names[1], c(ref, level), sep = "_")
+  colnames(coeff) = c("LCI", "OR", "UCI", "p-value")
+  coeff = round(coeff, digits = 3)
+  return(coeff)
+}
+
+beautify_cate = function (data) {
+  data[,1:3] = apply(data[,1:3], 2, function(i) {
+    round(i, digits = 1)
+  })
+  OR_b = apply(data, 1, function (i) {
+    if (i[2] != 1) {
+      return(paste(i[2], " (", i[1], "-", i[3], ")", sep = ""))
+    } else {
+      return(1)
+    }
+  })
+  result = cbind(OR_b, data[,4])
+  colnames(result) = c("OR","p")
+  return(result)
+}
+
+log_reg_cate_care4all = function (datay, datax, j, i, kref) {
+  for (x in i) {
+    assign(paste("mod", colnames(datax)[x],sep = ""),
+           log_reg_spss_kref_care(datay, datax, j, x, kref))
+  }
+  tab = eval(parse(text = paste("mod", colnames(datax)[i[1]],sep = "")))
+  for (x in i[-1]) {
+    tab2 = eval(parse(text = paste("mod", colnames(datax)[x],sep = "")))
+    tab = rbind(tab, tab2)
+  }
+  return(beautify_cate(tab))
+}
+```
+
+##### A function to create ordinal variables from multiple columns of boolean variables
+
+```{r}
+ordinal_from_bools = function(data, cols_as_list, start) {
+  s = start
+  ord = rep(start, dim(data)[1])
+  for (i in cols_as_list) {
+    s = s + 1
+    for (j in i) {
+      x = which(unlist(data[,j])==1)
+      ord[x] = s
+    }
+  }
+  return(ord)
+}
+```
+
+##### Functions to create a series of confusion tables
+
+```{r}
+tab_ngo_0 = function(datay, datax, y, x) {
+  datax_n = datax
+  datay_n = datay
+  tab = table(unlist(datax_n[,x]),
+              unlist(datay_n[,y]))
+  rownames(tab) = paste(colnames(datax)[x],
+                        rownames(tab),
+                        sep = "_")
+  tab_new = apply(tab, 2, function (i) {
+    sapply(i, function (j) {
+      paste(j, " (", round(j / sum(i) * 100, digits = 2), "%)", sep = "")
+    })
+  })
+  return(tab_new)
+}
+
+serial_tab_0 = function(datay, datax, y, spec_x) {
+  for (i in 1:length(spec_x)) {
+    assign(paste("tab", colnames(datax)[spec_x[i]],sep = ""),
+           tab_ngo_0(datay, datax, y, spec_x[i]))
+  }
+  tab = eval(parse(text = paste("tab", colnames(datax)[spec_x[1]],sep = "")))
+  for (i in 2:length(spec_x)) {
+    tab2 = eval(parse(text = paste("tab", colnames(datax)[spec_x[i]],sep = "")))
+    tab = rbind(tab, tab2)
+  }
+  return(tab)
+}
+```
+
+##### Function for a series of distributions
+
+```{r}
+cont_dist_ngo = function (datay, datax, y, x) {
+  ind = which(datay[,y] == 0)
+  mat = matrix(nrow = 1,
+               ncol = 2)
+  datax = unlist(datax[,x])
+  x1 = datax[ind]
+  x2 = datax[-ind]
+  ifelse((length(unique(x1))>2 | length(unique(x2))>2),
+         {
+           mn1 = round(mean(x1), digits = 2)
+           mn2 = round(mean(x2), digits = 2)
+           sd1 = round(sd(x1), digits = 2)
+           sd2 = round(sd(x2), digits = 2)
+           mat[1,1] <- paste(mn1, " (", sd1, ") ", sep = "")
+           mat[1,2] <- paste(mn2, " (", sd2, ") ", sep = "")
+         },
+         mat[1,1:2] <- c(NA,NA))
+  return(mat)
+}
+
+serial_cont_dist = function(datay, datax, y, spec_x) {
+  mat = matrix(nrow = length(spec_x),
+               ncol = 2)
+  for (i in 1:length(spec_x)) {
+    mat[i,] = cont_dist_ngo(datay, datax, y, spec_x[i])
+  }
+  colnames(mat) = c("mean(SD) (y=0)", "mean(SD) (y=1)")
+  rownames(mat) = colnames(datax)[spec_x]
+  return(mat)
+}
+
+```
+
+
+##### A function to process all logistic regression at one time
+
+```{r}
+serial_log_reg = function(datay, datax, target_column, ref) {
+  
+  t = target_column
+  
+  tab = matrix(c("OR", "p"), byrow = T, nrow = 1, ncol = 2)
+  rownames(tab) = "Var"
+  
+  p01 = c()
+  
+  for (i in 1:dim(uni_new)[2]) {
+    if ( (ref[i] == "cont") | (ref[i] == "cont_ord") ) {
+      tab_new = log_reg_cont_care4all(datay, datax, t, i)
+      for (p in tab_new[,2]) {
+        if (p < 0.1) {
+            p01 = c(p01, i)
+            break
+          }
+      }
+      tab = rbind(tab, tab_new)
+    } else {
+      tab_new = log_reg_cate_care4all(datay, datax, t, i, ref[i])
+      for (p in tab_new[,2]) {
+        if (!is.na(p)){
+          if (p < 0.1) {
+            p01 = c(p01, i)
+            break
+          }
+        }
+      }
+      tab = rbind(tab, tab_new)
+    }
+  }
+  
+  return(list(as.data.frame(tab), p01))
+}
+```
+
+### Function to create dummy variables for multivariate logistic regression (for ordinal variables with more than two categories)
+
+```{r, echo=FALSE}
+# A function to create dummy variables
+
+create_dummy = function(masterdata,ind) {
+  
+  coll = unlist(masterdata[,ind])
+  
+  n = length(unique(coll))
+  len = length(coll)
+  
+  data = matrix(nrow = len,
+                ncol = n)
+  count = 1
+  for (i in unique(coll)) {
+    data[,count] = sapply(coll, function(x) {
+      ifelse(x==i, 1,0)
+      })
+    count = count+1
+  }
+  c_name = colnames(masterdata)[ind]
+  colnames(data) = sapply(unique(coll), function (i) {
+    paste(c_name, i, sep = "_")
+  })
+  return(data)
+}
+
+# To be used with create_dummy()
+cbind_dummy = function(masterdata, ind) {
+  ini = ind[1]
+  initial = create_dummy(masterdata, ini)
+  if (length(ind) >=2) {
+    for (i in ind[-1]) {
+      subsequent = create_dummy(masterdata, i)
+      initial = cbind(initial, subsequent)
+    }
+    return(initial)
+  } else {
+    return(initial)
+  }
+}
+```
+
+##### Function to perform multivariate logistic regression
+
+```{r}
+library(MASS)
+
+multivar_log_reg = function(datay, datax, ref, j, sigvar_col, dir) {
+  
+  sigvar = sigvar_col
+  fordum = c()
+  
+  for (i in sigvar) {
+    if ( (ref[i] != "cont") & (ref[i] != "cont_ord") ) {
+      if (length(unique(datax[,i]))>2) {
+        fordum = c(fordum, i)
+      }
+    }
+  }
+    
+  nodum = setdiff(sigvar, fordum)
+  
+  if (length(fordum) > 0) {
+    y_x = cbind(datax[,nodum],
+                cbind_dummy(datax, fordum))
+  } else {
+    y_x = datax[,nodum]
+  }
+  
+  y_x$y = datay[,j]
+  
+  full_model = glm(y ~.,
+                   data = y_x,
+                   family = "binomial")
+  
+  step_model = stepAIC(full_model,
+                       direction = dir,
+                       trace = 0)
+  return(step_model)
+}
+```
+
+##### Function to extract the coefficient table from the model, and beautify
+
+```{r}
+model_beau = function(model) {
+  
+  out = as.data.frame(cont_beau(summary(model)$coefficients))
+  out$sig = sapply(out$p, function(i) {
+    pval = as.numeric(i)
+    if (pval < 0.001) {
+      "***"
+    } else if (pval < 0.01) {
+        "**"
+    } else if (pval < 0.05) {
+        "*"
+    } else if (pval < 0.1) {
+        "."
+    } else {
+        ""
+      }
+  })
+  return(out)
+}
+```
+
+### Data Wrangling
+
+```{r}
+names(uni_students)
+```
+
+```{r}
+# outcomes
+uni_new_y = data.frame(uni_students[,c(126,127,130)]) # 0/1
+```
+
+```{r}
+# demographics
+
+# Gender and Age
+uni_new = uni_students[,(52:53)]
+# 0:F/1:M 
+# age as ordinal, could be analysed as cont (i.e. no ref)
+# or may use 2.2 as ref
+ref = c(0,"cont_ord")
+
+# Degree
+uni_new = cbind(uni_new, uni_students[,54])
+# 40 as ref, most people, bachlor
+ref = c(ref,40)
+### For discussion: may combine below-bachelors
+
+# Year
+# just continuous var
+uni_new = cbind(uni_new, uni_students[,56])
+ref = c(ref, "cont_ord")
+
+# District
+uni_new = cbind(uni_new, uni_students[,57])
+# use 16 (shatin) as ref (most people)
+ref = c(ref, 16)
+
+# Psychiatric History
+uni_new = cbind(uni_new, uni_students[,90])
+ref = c(ref, 0)
+```
+
+```{r}
+# Part C: Covid-status
+
+# need simplification
+# 0 for no contact / effects at all
+# 1 for more distant effects
+# 2 for close contacts
+# 3 for infected cases
+
+cs = ordinal_from_bools(uni_students, list(63:65, 59:61, 58), 0)
+uni_new$C_1 = cs
+ref = c(ref, 0)
+```
+
+```{r}
+# Part D: Effects on daily lives by COVID
+
+# Question 1a and 1b will be regrouped
+
+# occupational related factors
+uni_new$D_1_occu = ordinal_from_bools(uni_students, list(67:69), 0)
+ref = c(ref, 0)
+
+# Living environment / family related
+uni_new$D_1_living = ordinal_from_bools(uni_students, list(70:71), 0)
+ref = c(ref, 0)
+
+#  Medical related
+uni_new$D_1_medical = ordinal_from_bools(uni_students, list(72), 0)
+ref = c(ref, 0)
+
+# School related
+uni_new$D_1_school = ordinal_from_bools(uni_students, list(73:75), 0)
+ref = c(ref, 0)
+
+# Psychologically related CANCELED for perfect correlation
+
+# Q2-5 just copied to the new dataframe
+uni_new = cbind(uni_new, uni_students[,85:88])
+ref = c(ref, rep("cont", 4))
+
+# Q6 CANCELLED for multicollinearity
+```
+
+```{r}
+# Part E: perception about COVID
+# just copy will do
+
+uni_new = cbind(uni_new, uni_students[,91:92])
+ref = c(ref, rep("cont", 2))
+```
+
+```{r}
+# Part F: social unrest
+
+# Q1 could be converted as an continuous / ordinal variable, with 0 as no contact
+
+uni_new$F_1 = ordinal_from_bools(uni_students, list(97,96,95,94,93), 0)
+# should be as "cont_ord"
+ref = c(ref, "cont_ord")
+
+# Q2 could just be copied
+
+uni_new = cbind(uni_new, uni_students[,99])
+ref = c(ref, "cont")
+
+# Q3 should be deleted for possible multicollinearity (with Q4)
+
+# Q4: bi 1-4 could be just copied
+uni_new = cbind(uni_new, uni_students[,101:104])
+ref = c(ref, rep(0,4))
+# bi 5:6 as occupational related
+uni_new$F_3_b_i_Occu = ordinal_from_bools(uni_students, list(105:106), 0)
+ref = c(ref, 0)
+# bii as one
+uni_new$F_3_b_ii_Phy = ordinal_from_bools(uni_students, list(c(110,112)), 0)
+ref = c(ref, 0)
+# biii should be cancelled for perfect correlation
+```
+
+```{r}
+uni_new = as.data.frame(uni_new)
+uni_new_y = as.data.frame(uni_new_y)
+```
+
+### Distribution tables
+
+```{r}
+ref_cate = which(ref != "cont")
+ref_cont = which(ref == "cont")
+
+phq_cate = serial_tab_0(uni_new_y, uni_new, 1, ref_cate)
+gad_cate = serial_tab_0(uni_new_y, uni_new, 2, ref_cate)
+iesr_cate = serial_tab_0(uni_new_y, uni_new, 3, ref_cate)
+
+phq_cont = serial_cont_dist(uni_new_y, uni_new, 1, ref_cont)
+gad_cont = serial_cont_dist(uni_new_y, uni_new, 2, ref_cont)
+iesr_cont = serial_cont_dist(uni_new_y, uni_new, 3, ref_cont)
+
+phq_tabs = rbind(phq_cate, phq_cont)
+gad_tabs = rbind(gad_cate, gad_cont)
+iesr_tabs = rbind(iesr_cate, iesr_cont)
+
+write.csv(phq_tabs, "~/unrest_covid_mental/data/uni_std/phq_tabs.csv")
+write.csv(gad_tabs, "~/unrest_covid_mental/data/uni_std/gad_tabs.csv")
+write.csv(iesr_tabs, "~/unrest_covid_mental/data/uni_std/iesr_tabs.csv")
+```
+
+### A series of univariate logistic regressions
+
+```{r, warning=FALSE}
+phqall = serial_log_reg(uni_new_y, uni_new, target_column = 1, ref = ref)
+gadall = serial_log_reg(uni_new_y, uni_new, target_column = 2, ref = ref)
+iesrall = serial_log_reg(uni_new_y, uni_new, target_column = 3, ref = ref)
+```
+
+```{r}
+write.csv(phqall[[1]], "~/unrest_covid_mental/data/uni_std/phq_logr.csv")
+write.csv(gadall[[1]], "~/unrest_covid_mental/data/uni_std/gad_logr.csv")
+write.csv(iesrall[[1]], "~/unrest_covid_mental/data/uni_std/iesr_logr.csv")
+```
+
+### Multivariate logistic regression
+
+```{r}
+phq_model = multivar_log_reg(uni_new_y, uni_new, ref, 1, phqall[[2]], "both")
+phq_model_b = model_beau(phq_model)
+phq_model_b
+write.csv(phq_model_b, "~/unrest_covid_mental/data/uni_std/phq_model_b.csv")
+```
+
+
+```{r}
+gad_model = multivar_log_reg(uni_new_y, uni_new, ref, 2, gadall[[2]], "both")
+gad_model_b = model_beau(gad_model)
+gad_model_b
+write.csv(gad_model_b, "~/unrest_covid_mental/data/uni_std/gad_model_b.csv")
+```
+
+```{r}
+iesr_model = multivar_log_reg(uni_new_y, uni_new, ref, 3, iesrall[[2]], "both")
+iesr_model_b = model_beau(iesr_model)
+iesr_model_b
+write.csv(iesr_model_b, "~/unrest_covid_mental/data/uni_std/iesr_model_b.csv")
+```
