@@ -1,0 +1,36 @@
+---
+title: "Untitled"
+author: "cheungngo"
+date: "12 November 2021"
+output: html_document
+---
+
+```{r}
+cs1 = ordinal_from_bools(uni_students, list(65,64,63,62,61,60,59,58), 0)
+```
+
+```{r}
+cs2 =as.data.frame(cs1)
+```
+
+```{r}
+table(cs1, uni_new_y$PHQ9_aboveCutOff)
+```
+
+```{r}
+psy = ordinal_from_bools(uni_students, list(82, 81, 80, 79), 0)
+table(psy, uni_new_y$PHQ9_aboveCutOff)
+```
+
+```{r}
+serial_tab_0(uni_new_y, uni_students, 1, c(79:82))
+```
+
+```{r}
+serial_tab_0(uni_new_y, uni_students, 1, c(67:75))
+```
+
+```{r}
+serial_tab_0(uni_new_y, uni_students, 1, c(114:122))
+```
+
